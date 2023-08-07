@@ -1,0 +1,36 @@
+---
+Fig: Fig.3
+---
+
+\floatplacement{figure}{H}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      cache = TRUE,
+                      fig.width = 6,
+                      fig.height = 4,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+### Set up  
+
+If necessary, we can clear the environment to start with a clean workspace.
+```{r}
+rm(list=ls())
+```
+
+Load packages. If necessary, install the following packages from [CRAN](https://cran.r-project.org/). Once installed, we can load the packages using `lapply`.
+```{r packages, warning=FALSE, message=FALSE}
+needed_packages = c("plyr", "dplyr", "ggplot2", "grid", "gridExtra", "stringr", "purrr", "png", "rgl", "parallel", "cowplot", "scales", "plotrix", "rEDM", "Kendall", "forecast", "tseries", "grDevices", "plot3D", "scales", "rgl", "deSolve", "tidyr", "data.table", "Metrics", "tidyverse", "egg", "rowr","tidyverse")
+
+lapply(needed_packages, require, character.only = TRUE)
+
+new.packages <- needed_packages[!(needed_packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+
+```
+
+```{r child = 'Fig_3ab.Rmd'}
+```

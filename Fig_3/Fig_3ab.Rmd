@@ -1,0 +1,177 @@
+---
+title: "Figure 3ab"   
+---
+
+##  ----------------------------Convergent Cross-Mapping (Figure 3a)
+
+If necessary, we can clear the environment to start with a clean workspace.
+```{r}
+rm(list=ls())
+```
+
+Help functions.
+```{r}
+library(ggplot2)
+```
+
+Here, we can load previous results.
+```{r}
+ds_all   <- read.csv("data/02_uEDM_ir.csv", header = T)
+climates <- unique(ds_all$climate)
+countrys <- unique(ds_all$country)
+models <- c("Seasonal","Ebisuzaki")
+```
+
+### State Space Reconstruction
+
+```{r Set general parameters}
+t2m_color <- "red"
+tp_color <- "skyblue2"
+rh_color <- "green3"
+svpd_color <- "goldenrod2"
+ir_color <- "black"
+season <- c(t2m_color,tp_color,rh_color,svpd_color)
+plot_box <- c("p1","p2","p3","p4")
+```
+
+### Data
+
+Add lagged and averaged lagged variables.
+```{r}
+plot_list = list() 
+
+for (j in 1:2){
+  for (i in 1:4){
+    ds <- ds_all %>%
+      filter(climate==climates[i]) %>%
+      filter(model==models[j]) %>%
+      mutate(country = factor(country, levels =  rev(countrys)))
+    
+    p <- ggplot(ds) + 
+      geom_boxplot(aes(x=ccm_null, y=country), color = season[i],size = 1) +
+      geom_point(aes(x=ccm_driver, y=country, color = ir_color), shape = 1, color = "black",size = 4, na.rm = T) +
+      coord_cartesian(xlim = c(0,1)) +
+      scale_x_continuous(breaks=c(0,0.5,1)) +
+      labs(x = " ", y=" ", title = climates[i])+
+      theme_test(base_size = 15)+ 
+      theme(legend.position = "none",
+            axis.text.y = element_blank(),
+            axis.ticks.y= element_blank()) + 
+      theme(axis.text = element_text(color = 'black'),
+            plot.margin = margin(1,0.5,0.5,2.5,'cm'),
+            panel.border = element_rect(size = 1),
+            axis.title = element_text(face = 'bold'),
+            plot.title = element_text(face = 'bold',size=13,hjust = 0.5))
+    num <- (j-1)*4+i
+    plot_list[[num]] <- p 
+    
+}
+}
+fg1_1 <- plot_list[[1]] %>% ggplotGrob()
+fg1_2 <- plot_list[[2]] %>% ggplotGrob()
+fg1_3 <- plot_list[[3]] %>% ggplotGrob()
+fg1_4 <- plot_list[[4]] %>% ggplotGrob()
+cg1 <- cowplot::plot_grid(fg1_1, fg1_2, fg1_3, fg1_4, nrow =1)
+
+fg2_1 <- plot_list[[5]] %>% ggplotGrob()
+fg2_2 <- plot_list[[6]] %>% ggplotGrob()
+fg2_3 <- plot_list[[7]] %>% ggplotGrob()
+fg2_4 <- plot_list[[8]] %>% ggplotGrob()
+cg2 <- cowplot::plot_grid(fg2_1, fg2_2, fg2_3, fg2_4, nrow =1)
+
+cairo_pdf(file = "output/fig_3a.pdf", width = 10, height = 10)
+cowplot::plot_grid(cg1, cg2, ncol = 1)
+dev.off()
+```
+
+## Paired tests for independence of two sets of data
+```{r}
+test_all   <- read.csv("data/03_uEDM_ir_T_test.csv", header = T)
+
+# test for normality
+#p<0.05, data not normal
+library(reshape2)
+#tapply(ds_test$rho, ds_test$group, shapiro.test)
+
+ds_test <- test_all %>%
+      filter(climate==climates[1]) %>%
+      filter(group!=2) 
+
+wilcox.test(ds_test$rho,ds_test$group,alternative="two.sided")
+#reslut$p.value
+
+
+```
+
+### Plotting multivariate EDM forecast improvements.
+### When the EDM model includes driver variables, a causal effect is demonstrated if the EDM prediction skill (ρ) improves. Quantified by Δρ = ρ (with driver) - ρ (no driver, ir_t,ir_t-2,ir_t-4 only), where ρ is the Pearson correlation between observations and EDM predictions.
+```{r}
+delta_all   <- read.csv("data/04_mEDM_delta_ir-t.csv", header = T)
+cols_all <- unique(delta_all$cols)
+delta <- delta_all %>%
+  mutate(cols = factor(cols, levels =  cols_all))
+
+ggplot(delta) + 
+  geom_boxplot(aes(x=cols, y=rho), color = "skyblue3", size = 0.7) +
+  #geom_boxplot(aes(x=cols, y=rmse), color = "indianred3", size = 0.7) +
+  geom_hline(yintercept = 0,linetype="dotted", color = 'gray40',size = 1) + 
+  labs(x = "Driver in EDM", y="Cross map skill (ρ)")+
+  theme_test(base_size = 15)+ 
+  #theme(legend.position = "none") + 
+  theme(axis.text = element_text(color = 'black'),
+        axis.text.x = element_text(angle = 35,vjust = 0.7,hjust = 0.5),
+        #panel.border = element_rect(size = 1),
+        axis.title = element_text(face = 'bold'),
+        plot.title = element_text(face = 'bold',size=17,hjust = 0.5))
+
+#dev.copy(pdf, paste("output/fig_3b.pdf", sep=""), width = 8, height = 4)
+#dev.off()
+
+```
+
+## smap mEDM
+```{r}
+delta_all   <- read.csv("data/05_mEDM_delta_ir_lag.csv", header = T)
+embedding_all <- unique(delta_all$embedding)
+delta <- delta_all %>%
+  mutate(embedding = factor(embedding, levels =  embedding_all))
+
+max_rho <- delta %>%
+  filter(embedding=="t2m+tp+rh") %>%
+  filter(type=="ir_yr")
+
+m_rho <- median(max_rho$rho)
+m_rmse <- median(max_rho$rmse)
+
+p1 <- ggplot(delta,aes(x=embedding, y=rho)) + 
+  stat_boxplot(aes(fill=type),geom="errorbar",width=0.1,size=0.6,position=position_dodge(0.6))+
+  geom_boxplot(aes(fill=type), position=position_dodge(0.6), size=0.5,               width=0.5)+
+  scale_fill_manual(values = c("skyblue3","indianred3")) +
+  geom_hline(yintercept = m_rho,linetype="dotted", color = 'gray40',size = 1) + 
+  labs(x = "Driver in EDM", y="Cross map skill (ρ)")+
+  theme_test(base_size = 15)+ 
+  theme(axis.text = element_text(color = 'black'),
+        axis.text.x = element_text(angle = 35,vjust = 0.7,hjust = 0.5),
+        axis.title = element_text(face = 'bold'),
+        plot.title = element_text(face = 'bold',size=17,hjust = 0.5))
+
+p2 <- ggplot(delta,aes(x=embedding, y=rmse)) + 
+  stat_boxplot(aes(fill=type),geom="errorbar",width=0.1,size=0.6,position=position_dodge(0.6))+
+  geom_boxplot(aes(fill=type), position=position_dodge(0.6), size=0.5,               width=0.5)+
+  scale_fill_manual(values = c("skyblue3","indianred3")) +
+  geom_hline(yintercept = m_rmse,linetype="dotted", color = 'gray40',size = 1) + 
+  labs(x = "Driver in EDM", y=" Root Mean Square Error ")+
+  theme_test(base_size = 15)+ 
+  theme(axis.text = element_text(color = 'black'),
+        axis.text.x = element_text(angle = 35,vjust = 0.7,hjust = 0.5),
+        axis.title = element_text(face = 'bold'),
+        plot.title = element_text(face = 'bold',size=17,hjust = 0.5))
+
+fg1 <- p1 %>% ggplotGrob()
+fg2 <- p2 %>% ggplotGrob()
+
+cairo_pdf(file = "output/fig_3b.pdf", width =15, height = 4)
+cowplot::plot_grid(fg1, fg2, nrow = 1)
+dev.off()
+
+```
