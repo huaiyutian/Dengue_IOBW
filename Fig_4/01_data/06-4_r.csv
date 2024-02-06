@@ -1,0 +1,27 @@
+country,r_with IOBW,r_without IOBW
+mexico,0.86,0.27
+vietnam,0.59,0.44
+laos,0.58,0.302
+DR,0.89,0.65
+jamaica,0.47,0.47
+belize,0.86,0.466
+thailand,0.84,0.683
+guatemala,0.85,0.584
+honduras,0.76,0.456
+el salvador,0.69,0.57
+nicaragua,0.82,0.778
+cambodia,0.71,0.491
+philipines,0.72,0.422
+costa rica,0.75,0.495
+panama,0.52,0.4
+sri lanka,0.73,0.772
+venezuela,0.72,0.54
+colombia,0.76,0.64
+malaysia,0.4,0.35
+singapore,0.64,0.57
+ecuador,0.75,0.32
+brazil,0.62,0.302
+peru,0.7,0.332
+bolivia,0.61,0.388
+,,
+mean,0.701666667,0.487125
