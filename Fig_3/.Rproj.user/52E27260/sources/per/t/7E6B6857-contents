@@ -1,0 +1,209 @@
+---
+title: "Step 3: Convergent Cross-Mapping"   
+output: html_document
+---
+
+## Convergent Cross-Mapping (Figure 3A)
+
+Run CCM between cases and each driver. 
+Step3. CCM using the actual data.
+```{r}
+
+# CCM
+ccm_obs_summary <- foreach(var = climate_vars, .packages = needed_packages) %dopar% {
+
+  
+  ccm_result <- CCM(dataFrame = data_country_clean, 
+                    E = ccm_parameter[, paste0("E_", var)], 
+                    columns = "ir", 
+                    target = var, 
+                    seed = seed_num,
+                    libSizes = lib_ccm, 
+                    sample = sam_num,
+                    includeData = TRUE)
+  
+  # Calculate median, maximum, and quantiles of rho
+  quantiles <- ccm_result[["CCM1_PredictStat"]] %>%
+  group_by(LibSize) %>%
+  summarise(
+    rho_mean = mean(rho),
+    rho_Q50 = quantile(rho, 0.5),
+    rho_Q2.5 = quantile(rho, 0.025),
+    rho_Q97.5 = quantile(rho, 0.975)
+  ) %>%
+    select(-"LibSize")
+  
+  quantiles_rev <- ccm_result[["CCM2_PredictStat"]] %>%
+  group_by(LibSize) %>%
+  summarise(
+    rho_rev_mean = mean(rho),
+    rho_rev_Q50 = quantile(rho, 0.5),
+    rho_rev_Q2.5 = quantile(rho, 0.025),
+    rho_rev_Q97.5 = quantile(rho, 0.975)
+  )  %>%
+    select(-"LibSize")
+    
+  colnames(ccm_result[["LibMeans"]])[2] <- "rho"
+  colnames(ccm_result[["LibMeans"]])[3] <- "rho_rev"
+  
+  merged_data <- cbind(ccm_result[["LibMeans"]], quantiles, quantiles_rev)
+  return(merged_data)
+}
+
+names(ccm_obs_summary) <- climate_vars
+
+```
+
+
+Step4. CCM using the ebisuzaki null data.
+```{r}
+# CCM using the ebisuzaki null data
+ccm_ebi_summary <- foreach(var = climate_vars, .packages = needed_packages) %dopar% {
+  ccm_result_list <- foreach(num = 1:sur_num) %dopar% {
+    result <- CCM(dataFrame = data_country_obs_null, 
+                  E = ccm_parameter[, paste0("E_", var)], 
+                  columns = "ir", 
+                  target = paste0(var, "_ebi.", num), 
+                  libSizes = lib_ccm, 
+                  sample = sam_num)
+
+    colnames(result)[2] <- "rho"
+    colnames(result)[3] <- "rho_rev"
+
+    return(result)
+  }
+  
+  ccm_result_combined <- do.call(bind_rows, ccm_result_list)  
+  # Calculate median, maximum, and quantiles of rho
+  quantiles <- ccm_result_combined %>%
+  group_by(LibSize) %>%
+  summarise(
+    rho_mean = mean(rho),
+    rho_Q50 = quantile(rho, 0.5),
+    rho_Q2.5 = quantile(rho, 0.025),
+    rho_Q97.5 = quantile(rho, 0.975)
+  )
+  
+  quantiles_rev <- ccm_result_combined %>%
+  group_by(LibSize) %>%
+  summarise(
+    rho_rev_mean = mean(rho_rev),
+    rho_rev_Q50 = quantile(rho_rev, 0.5),
+    rho_rev_Q2.5 = quantile(rho_rev, 0.025),
+    rho_rev_Q97.5 = quantile(rho_rev, 0.975)
+  ) %>%
+    select(-"LibSize")
+    
+  merged_data <- cbind(quantiles, quantiles_rev) 
+
+  return(list(ccm_ebi_all = ccm_result_combined, ccm_ebi_95ci = merged_data))
+}
+
+names(ccm_ebi_summary) <- climate_vars
+
+```
+
+Step 5. CCM using the seasonal null data.
+```{r}
+# CCM using the ebisuzaki null data
+ccm_sea_summary <- foreach(var = climate_vars, .packages = needed_packages) %dopar% {
+  ccm_result_list <- foreach(num = 1:sur_num) %dopar% {
+    result <- CCM(dataFrame = data_country_obs_null, 
+                  E = ccm_parameter[, paste0("E_", var)], 
+                  columns = "ir", 
+                  target = paste0(var, "_sea.", num), 
+                  libSizes = lib_ccm, 
+                  sample = sam_num)
+
+    colnames(result)[2] <- "rho"
+    colnames(result)[3] <- "rho_rev"
+
+    return(result)
+  }
+  
+  ccm_result_combined <- do.call(bind_rows, ccm_result_list)  
+
+  # Calculate median, maximum, and quantiles of rho
+  quantiles <- ccm_result_combined %>%
+  group_by(LibSize) %>%
+  summarise(
+    rho_mean = mean(rho),
+    rho_Q50 = quantile(rho, 0.5),
+    rho_Q2.5 = quantile(rho, 0.025),
+    rho_Q97.5 = quantile(rho, 0.975)
+  )
+  
+  quantiles_rev <- ccm_result_combined %>%
+  group_by(LibSize) %>%
+  summarise(
+    rho_rev_mean = mean(rho_rev),
+    rho_rev_Q50 = quantile(rho_rev, 0.5),
+    rho_rev_Q2.5 = quantile(rho_rev, 0.025),
+    rho_rev_Q97.5 = quantile(rho_rev, 0.975)
+  ) %>%
+    select(-"LibSize")
+    
+  merged_data <- cbind(quantiles, quantiles_rev) 
+
+  return(list(ccm_sea_all = ccm_result_combined, ccm_sea_95ci = merged_data))
+}
+
+names(ccm_sea_summary) <- climate_vars
+#save.image(file=paste0("02_output/00_cache/",country_index,"_CCM-single_",country_name, ".RData") )
+```
+
+CCM to obtain null distributions.
+```{r}
+combined_data <- lapply(climate_vars, function(var) {
+  
+  ccm_obs  <- ccm_obs_summary[[var]] %>% mutate(method = "Observed")
+  
+  # 95CI
+  ccm_ebi_summary[[var]][["ccm_ebi_95ci"]] <- as.data.frame(ccm_ebi_summary[[var]][["ccm_ebi_95ci"]])
+  ccm_ebi_95ci <- ccm_ebi_summary[[var]][["ccm_ebi_95ci"]] %>% mutate(method = "Ebisuzaki", LibSize = ccm_obs$LibSize)
+  
+  ccm_sea_summary[[var]][["ccm_sea_95ci"]] <- as.data.frame(ccm_sea_summary[[var]][["ccm_sea_95ci"]])
+  ccm_sea_95ci <- ccm_sea_summary[[var]][["ccm_sea_95ci"]] %>% mutate(method = "Seasonal", LibSize = ccm_obs$LibSize)
+  
+  # Bind the data frames
+  ccm_95ci <- bind_rows(ccm_obs, ccm_sea_95ci, ccm_ebi_95ci) %>% mutate(climate = var)
+  
+  # rho all
+  ccm_ebi_max <- ccm_ebi_summary[[var]][["ccm_ebi_all"]] %>%
+    mutate(method = "Ebisuzaki") %>% 
+    mutate(climate = var)%>%
+    filter(LibSize == max_row)
+  
+  ccm_sea_max <- ccm_sea_summary[[var]][["ccm_sea_all"]]   %>% 
+    mutate(method = "Seasonal")  %>% 
+    mutate(climate = var) %>%
+    filter(LibSize == max_row)
+  
+  ccm_obs_max <- ccm_obs %>% 
+    mutate(climate = var) %>%
+    filter(LibSize == max_row)
+  
+  return(list(ccm_95ci = ccm_95ci, ccm_ebi_max = ccm_ebi_max, ccm_sea_max = ccm_sea_max, ccm_obs_max=ccm_obs_max))
+})
+
+ccm_95ci_country <- do.call(rbind, lapply(combined_data, function(x) x$ccm_95ci)) %>%
+  mutate(country = country_name) %>%
+  select(country, climate, method, LibSize, everything())
+
+ccm_ebi_max_country <- do.call(rbind, lapply(combined_data, function(x) x$ccm_ebi_max)) %>%
+  mutate(country = country_name) %>%
+  select(country, climate, method, LibSize, everything())
+
+ccm_sea_max_country <- do.call(rbind, lapply(combined_data, function(x) x$ccm_sea_max)) %>%
+  mutate(country = country_name) %>%
+  select(country, climate, method, LibSize, everything())
+
+ccm_obs_max_country <- do.call(rbind, lapply(combined_data, function(x) x$ccm_obs_max)) %>%
+  mutate(country = country_name) %>%
+  select(country, climate, method, LibSize, rho, rho_rev)
+
+ccm_95ci_all <- rbind.data.frame(ccm_95ci_all, ccm_95ci_country)
+ccm_ebi_max_all <- rbind.data.frame(ccm_ebi_max_all, ccm_ebi_max_country)
+ccm_sea_max_all <- rbind.data.frame(ccm_sea_max_all, ccm_sea_max_country)
+ccm_obs_max_all <- rbind.data.frame(ccm_obs_max_all, ccm_obs_max_country)
+```
