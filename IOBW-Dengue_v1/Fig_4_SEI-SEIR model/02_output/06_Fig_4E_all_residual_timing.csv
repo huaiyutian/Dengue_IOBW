@@ -1,0 +1,51 @@
+country,peak_months_obs,peak_months_pre,mosquito
+Belize,8,8,alb
+Bolivia,3,3,aeg
+Bolivia,2,1,aeg
+Brazil,3,4,aeg
+Cambodia,8,8,aeg
+Cambodia,8,8,aeg
+Cambodia,9,9,aeg
+Colombia,12,12,aeg
+Costa Rica,11,10,alb
+Costa Rica,8,8,alb
+Dominican Republic,10,10,aeg
+Dominican Republic,8,8,aeg
+Ecuador,5,5,alb
+El Salvador,8,8,alb
+El Salvador,8,8,alb
+El Salvador,8,8,alb
+Guatemala,11,11,aeg
+Honduras,10,9,aeg
+Honduras,6,6,aeg
+Jamaica,10,11,aeg
+Laos,7,8,aeg
+Laos,7,8,aeg
+Malaysia,8,8,alb
+Malaysia,1,2,alb
+Malaysia,7,7,alb
+Malaysia,1,1,alb
+Malaysia,11,11,alb
+Mexico,8,8,aeg
+Mexico,10,10,aeg
+Nicaragua,7,8,aeg
+Panama,2,2,alb
+Panama,10,10,alb
+Panama,12,12,alb
+Peru,5,6,alb
+Peru,5,5,alb
+Philippines,9,10,aeg
+Philippines,8,8,aeg
+Philippines,8,8,aeg
+Philippines,7,8,aeg
+Singapore,7,8,alb
+Singapore,1,1,alb
+Singapore,7,7,alb
+Sri Lanka,7,7,aeg
+Sri Lanka,11,12,aeg
+Thailand,11,11,alb
+Thailand,7,7,alb
+Venezuela,10,11,aeg
+Venezuela,12,11,aeg
+Venezuela,1,3,aeg
+Vietnam,9,9,alb

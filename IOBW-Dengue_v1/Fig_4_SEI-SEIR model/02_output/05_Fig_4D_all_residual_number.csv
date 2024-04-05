@@ -1,0 +1,25 @@
+country,max_outbreak_obs,max_outbreak_pre,mosquito
+Belize,1,1,alb
+Bolivia,3,4,aeg
+Brazil,3,3,aeg
+Cambodia,4,4,aeg
+Colombia,5,3,aeg
+Costa Rica,2,3,alb
+Dominican Republic,2,2,aeg
+Ecuador,1,1,alb
+El Salvador,3,3,alb
+Guatemala,3,3,aeg
+Honduras,3,3,aeg
+Jamaica,3,2,aeg
+Laos,2,5,aeg
+Malaysia,6,8,alb
+Mexico,2,3,aeg
+Nicaragua,2,2,aeg
+Panama,5,5,alb
+Peru,2,2,alb
+Philippines,5,5,aeg
+Singapore,3,2,alb
+Sri Lanka,3,3,aeg
+Thailand,3,4,alb
+Venezuela,4,4,aeg
+Vietnam,2,2,alb

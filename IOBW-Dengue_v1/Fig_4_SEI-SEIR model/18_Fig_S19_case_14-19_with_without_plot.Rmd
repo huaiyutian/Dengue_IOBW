@@ -1,0 +1,77 @@
+---
+title: "Figure S19"   
+output: html_document
+---
+
+## read.csv
+```{r}
+library(ggplot2)
+library(gridExtra)
+plot_data_1 <- read.csv("02_output/08_bestplot_r.csv")
+```
+Set the drawing theme.
+```{r}
+mytheme <- theme_bw()+
+  theme(
+    panel.grid.major.x=element_blank(),
+    panel.grid.minor.x=element_blank(),
+    panel.grid.major.y=element_blank(),
+    panel.grid.minor.y=element_blank(),
+    legend.position = c("bottom"),
+    legend.background = element_rect(fill=NA, size=0,color=NA),
+    legend.text=element_text(size=9),
+    legend.title=element_text(face="bold",size=9),
+    axis.line.y=element_line(linetype=1,color='black',size=0.5),
+    axis.line.x=element_line(linetype=1,color='black',size=0.5),
+    axis.ticks = element_line(linetype=2,color='black'),
+    panel.grid=element_line(linetype=2,color='grey'),
+    plot.title = element_text(hjust = 0.5,size=9, face = "bold"),
+    axis.title.y.left = element_text(size = 9,color="black",vjust=2),
+    axis.title.y.right =element_text(size = 9,color="black",vjust=0,angle=90),
+    axis.title.x = element_text(size = 9, color="black",vjust = 0),
+    axis.text.y.left = element_text(size = 9,color="black",vjust = 0.5,angle = 0),
+    axis.text.y.right = element_text(size = 9,color="black",vjust = 0.5,angle = 0),
+    axis.text.x = element_text(size = 9, color="black",vjust = 0.5, angle = 0),
+    axis.ticks.length=unit(0.15,"cm"),
+    axis.ticks.y=element_line(color="black",size=.5),
+    axis.ticks.x=element_line(color="black",size=.5),
+    plot.margin=unit(c(1,1,1,1),'lines'),
+    panel.border = element_rect(colour = "white", fill=NA, size=1)
+  )
+```
+
+```{r}
+
+
+plot_data_1$date <- as.Date(plot_data_1$date)
+plot_data_1$date_ym <- format(plot_data_1$date, "%Y%m")
+monthly_avg <- aggregate(cbind(pre_cases_std_with, pre_cases_std_without,obs_cases_std) ~ date_ym + country, data = plot_data_1, FUN = mean)
+countries <- unique(monthly_avg$country)
+
+monthly_avg$date_ym <- as.Date(paste0(monthly_avg$date_ym, "01"), format = "%Y%m%d")
+
+
+linetypes <- c("solid", "dotted","dashed")
+
+plots <- list()
+for (i in 1:length(countries)) {
+  country_data <- monthly_avg[monthly_avg$country == countries[i], ]
+
+  p <- ggplot(country_data, aes(x = date_ym)) +
+    geom_line(aes(y = pre_cases_std_with, color = "cases with IOBW")) +
+    geom_line(aes(y = pre_cases_std_without, color = "cases without IOBW")) +
+    geom_line(aes(y = obs_cases_std, color = "case of observed"), linetype = "dashed") +
+    labs(title = countries[i], x = "Time (month)", y = "Dengue cases (standardised)") +
+    mytheme +
+    theme(strip.background = element_blank(), strip.text = element_text(size = 15)) +
+    scale_color_manual(values = c("cases with IOBW" = '#009432', "cases without IOBW" = '#f1c40f', "case of observed" = "black")) +
+    theme(legend.title = element_blank()) 
+  
+  plots[[i]] <- p
+}
+
+pdf("02_output/Fig_S19.pdf", width = 15, height = 21)
+grid.arrange(grobs = plots, ncol = 4)
+dev.off()
+```
+

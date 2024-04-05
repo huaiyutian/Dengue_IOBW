@@ -1,0 +1,134 @@
+---
+title: "Step 2: Optimal Embedding Dimension"   
+output: html_document
+---
+
+## Optimal Embedding Dimension
+
+Normalize the variables before performing EDM analyses.
+Only use the six variables: incidence, temp, rain, rh, svpd, iobw
+```{r}
+all_vars <- c("last_yr_ir","ir","t2m","tp","rh","svpd","iobw")
+all_vars_name <- c( "Last year's incidence","Incidence","Temperature", "Rain","RH", "SVPD","IOBW" )
+
+climate_vars <- all_vars[-(1:2)]
+local_climate_vars <- climate_vars[c(-5)]
+
+# Normalize the whole dataset
+data_country.norm <- scale(data_country[,all_vars], center = TRUE, scale = TRUE)
+
+# Convert back to dataframe
+data_country.norm <- as.data.frame(data_country.norm)
+
+# Add the date back
+time_vars <- c("time_id","date","year","month","country")
+data_country.norm <- cbind(data_country[,time_vars], data_country.norm)
+
+# library size
+lib_ccm <- c(1,NROW(data_country.norm))
+```
+
+### Simplex projection
+
+We will use simplex projection to determine the dimensionality of the variables and if the variables are predictable (i.e., if governed by determinisitc processes). 
+
+Option 1: We use EmbedDimension() to determine the optimal embedding dimension, E.
+```{r}
+E.opt <- lapply(climate_vars, function(var) {
+  EmbedDimension( dataFrame = data_country.norm[, c("time_id", all_vars)],    # input data
+                  lib       = lib_ccm, # portion of data to train
+                  pred      = lib_ccm, # portion of data to predict
+                  maxE      = 4,
+                  columns   = var,
+                  target    = "ir" )
+})
+names(E.opt) <- climate_vars
+opt_E <- sapply(E.opt, function(df) {
+  df$E[which.max(unlist(df$rho))]
+})
+opt_E
+```
+### Evidence of Nonlinear Dynamics
+We use PredictNonlinear() to test nonlinear dynamics.
+```{r}
+
+find_max_Theta <- function(df) {
+  integer_thetas <- df$Theta[df$Theta == as.integer(df$Theta)]
+  if (length(integer_thetas) > 0) {
+    max_rho_index <- which.max(df$rho[df$Theta %in% integer_thetas])
+    return(df$Theta[df$Theta %in% integer_thetas][max_rho_index])
+  } else {
+    return(NA) 
+  }
+}
+
+theta.rho  <- lapply(climate_vars, function(var) {
+  PredictNonlinear( dataFrame = data_country.norm[, c("time_id", all_vars)],    # input data
+                    lib       = lib_ccm, # portion of data to train
+                    pred      = lib_ccm, # portion of data to predict, 
+                    E         = opt_E[var],
+                    columns   = var,
+                    target    = "ir" )
+})
+names(theta.rho) <- climate_vars
+
+max_theta.rho <- sapply(theta.rho, find_max_Theta)
+print(max_theta.rho)
+
+# Plot Nonlinear
+par(mfrow = c(2, 3), mar = c(4,4,4,4), mgp = c(1,0.5,0), oma = c(0,0,0,0))
+
+for (var in names(theta.rho)) {
+  plot(theta.rho[[var]]$Theta, theta.rho[[var]]$rho, plot.main=NULL, type = "l",lwd=2,
+       axes = FALSE,
+       xlab = "", ylab = "")
+  box(col="black")
+  axis(1, col="black", col.ticks="black", col.axis="black", cex.axis=1, tck = 0.02)
+  mtext("Nonlinearity (theta)", side=1, line=2, col="black", cex=0.8)
+  
+  axis(2, col="black", col.ticks="black", col.axis="black", cex.axis=1, tck = 0.02)
+  mtext("Forecast Skill (rho)", side=2, line=2, col="black", cex=0.8)
+  abline(v = max_theta.rho[var], col="black", lwd=3, lty=2)
+  title(var,cex.main=2)
+}
+
+output_name <- paste("02_output/01_parameter_selection/03_Nonlinear/", country_index, "_", country_name, sep="")
+file_name = paste(output_name, ".pdf", sep="")
+dev.copy(pdf, file=file_name, width = 8, height = 5)
+dev.off()
+```
+### Forecast interval accuracy
+We use PredictInterval() to test nonlinear dynamics.
+```{r}
+Tp.rho  <- lapply(climate_vars, function(var) {
+  PredictInterval( dataFrame  = data_country.norm[, c("time_id", all_vars)],    # input data
+                    lib       = lib_ccm, # portion of data to train
+                    pred      = lib_ccm, # portion of data to predict, 
+                    E         = opt_E[var],
+                    columns   = var,
+                    target    = "ir")
+})
+names(Tp.rho) <- climate_vars
+
+```
+
+Here, we can save our progress.
+```{r}
+# save E and theta
+opt_E <- t(data.frame(opt_E))
+colnames(opt_E) <- paste0("E_", colnames(opt_E))
+
+max_theta.rho <- t(data.frame(max_theta.rho))
+colnames(max_theta.rho) <- paste0("theta_", colnames(max_theta.rho))
+
+ccm_parameter <- cbind(ccm_parameter_lag, opt_E, max_theta.rho)
+ccm_parameter <- as.data.frame(ccm_parameter)
+
+ccm_parameter$country <- country_name
+rownames(ccm_parameter) <- 1
+
+ccm_parameter_all <- rbind(ccm_parameter_all,ccm_parameter)
+# rename row
+rownames(ccm_parameter_all) <- 1:nrow(ccm_parameter_all)
+
+```

@@ -1,0 +1,45 @@
+---
+title: "Figure 3C"   
+output: html_document
+---
+
+## read.csv
+```{r}
+se_pred.t2m <- read.csv("01_data/02_output/08_pred_t2m.csv",row.names = 1)
+data_country_plot <- read.csv("01_data/01_dengue-climate_monthly_2014-2019_24c.csv")
+```
+
+
+## temp.t2m-Fig.3C
+```{r}
+
+plot.SE.temp <- data_country_plot %>%
+  mutate(time_index = as.numeric(time_id)) %>%
+  select(time_index, ir, t2m, tp, svpd,country) %>%
+  inner_join(se_pred.t2m, by = c("time_index","country")) %>%
+  mutate(delta = delta)
+
+
+g.temp_v_temp <-plot.SE.temp  %>%
+  ggplot(aes(x = t2m, y = delta)) +
+  geom_point(shape = 3, color = "grey40", alpha = 0.5,na.rm = T) +
+  geom_smooth(method = "lm",formula = y~x + I(x^2), se = TRUE,color=c_red,fill=c_red,na.rm = T)+
+  geom_abline(slope = 0, intercept = 0, color = 'black', lwd = 0.5) +
+  scale_y_continuous(name = "Effect of temperature on incidence\n(\u0394Incidence/\u0394Temperature)", breaks = seq(-50, 100, 25)) +
+  scale_x_continuous(name = "Temperature (°C)", breaks = seq(10,30, 2)) +
+  labs(y = NULL,color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = "black") +
+  theme(strip.background = element_blank(), strip.text = element_text(size = 9),
+        legend.position = "none")
+
+g.temp_v_temp
+g.temp_v_temp_grob <- ggplotGrob(g.temp_v_temp)
+fpath <- "02_output/03_Figure_3C.pdf"
+cairo_pdf(file = fpath, width = 6, height = 4)
+
+grid.arrange(g.temp_v_temp_grob,
+             nrow = 1)
+dev.off()
+```
+

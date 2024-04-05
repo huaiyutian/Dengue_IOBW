@@ -1,0 +1,72 @@
+---
+title: "Step 1: Cross-Correlation Analyses"   
+output: html_document
+---
+
+## Cross-Correlation Analyses
+
+Help functions.
+```{r}
+source("04_data_formatting.R")
+```
+
+### Data
+
+We load and process the data and create our main dataframe.
+```{r}
+data_country  <- data.clean("01_dengue-climate_monthly_2014-2019_24c",country_index)
+
+country_name <- unique(data_country$country)
+
+```
+
+### Cross-Correlation
+```{r}
+par(mfrow = c(2, 3), mar = c(3.5,3.5,1.7,1), mgp = c(2,0.5,0), oma = c(0,0,0,0))
+
+plot.xcor <- function(driver, mainTitle){
+  xcorr_ir_driver <- ccf(data_country$ir, na.omit(data_country[[driver]]), lag.max = 5, 
+                            type = c("correlation", "covariance"),
+                            plot = TRUE, main = "", axes = FALSE, xlab = "", ylab = "")
+  box(col="black")
+  axis(1, col="black", col.ticks="black", col.axis="black", cex.axis=1, tck = 0.02)
+  mtext("Time lag (month)", side=1, line=2.2, col="black", cex=1)
+  
+  axis(2, col="black", col.ticks="black", col.axis="black", cex.axis=1, tck = 0.02)
+  mtext(expression(paste("Cross-correlation with incidence (",rho,")")), side=2, line=2, 
+        col="black", cex=0.8)
+  
+  # # Use logical conditions to filter values with lag greater than 0
+  bio_lag <- xcorr_ir_driver$lag[which(xcorr_ir_driver$acf == max(xcorr_ir_driver$acf[xcorr_ir_driver$lag > 0]))]
+  abline(v = bio_lag, col = '#e74c3c', lwd = 2)
+  title(mainTitle, cex.main=1.4)
+  return(bio_lag)
+}
+
+# Temp and Incidence
+lag_t2m <- plot.xcor("t2m", expression(paste("Temperature")))
+
+# Rainfall and Incidence
+lag_tp <- plot.xcor("tp", expression(paste("Precipitation")))
+
+# Susceptibles Index and Incidence
+lag_rh <- plot.xcor("rh", expression(paste("Relative humidity")))
+
+# Susceptibles Index and Incidence
+lag_svpd <- plot.xcor("svpd", expression(paste("SVPD")))
+
+# Susceptibles Index and Incidence
+lag_iobw <- plot.xcor("iobw", expression(paste("IOBW index")))
+
+output_name <- paste("02_output/01_parameter_selection/01_Cross-Correlation/", country_index, "_", country_name, sep="")
+file_name = paste(output_name, ".pdf", sep="")
+dev.copy(pdf, file=file_name, width = 8, height = 5)
+dev.off()
+```
+
+Here, we can save our progress.
+```{r}
+# save lag
+ccm_parameter_lag <-  cbind(lag_t2m,lag_tp,lag_rh,lag_svpd,lag_iobw)
+
+```

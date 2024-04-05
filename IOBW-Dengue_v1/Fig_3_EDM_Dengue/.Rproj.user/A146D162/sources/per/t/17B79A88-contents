@@ -1,0 +1,85 @@
+---
+title: "Figure S14"   
+output: html_document
+---
+read data
+```{r cars}
+delta_obs_95ci <- read.csv( "01_data/02_output/05_lag0-3_obs_delta.csv")
+delta_ebi_95ci <- read.csv( "01_data/02_output/06_lag0-3_ebi_delta.csv")
+delta_sea_95ci <- read.csv( "01_data/02_output/07_lag0-3_sea_delta.csv")
+```
+
+## plot FigS14-A
+```{r}
+delta_obs_95ci$var_col <- factor(delta_obs_95ci$var_col, levels = unique(delta_obs_95ci$var_col))
+
+max_mean <- max(delta_obs_95ci$delta_rho_ci_upper, delta_sea_95ci$delta_rho_ci_upper, delta_ebi_95ci$delta_rho_ci_upper)
+min_mean <- min(delta_obs_95ci$delta_rho_ci_lower, delta_sea_95ci$delta_rho_ci_lower, delta_ebi_95ci$delta_rho_ci_lower)
+
+max_level <- max(delta_obs_95ci$delta_rho_mean)
+
+max_ci_upper <- ceiling( max_mean * 10) / 10 
+min_ci_upper <- floor( min_mean * 10) / 10 
+
+plot_mul_ccm_95ci <- ggplot(delta_obs_95ci, aes(x = var_col, y = delta_rho_mean, color = "black")) +
+  geom_errorbar(aes(ymin = delta_rho_ci_lower, ymax = delta_rho_ci_upper), color = c_grey, width = 0.3, size = 0.9) +
+  geom_point(color = c_grey, size = 3, stroke = 1) +
+  geom_point(data = delta_sea_95ci, aes(x = var_col, y = delta_rho_mean), color = c_green, size = 3, stroke = 1) +
+    geom_errorbar(data = delta_sea_95ci,aes(ymin = delta_rho_ci_lower, ymax = delta_rho_ci_upper), color = c_green, width = 0.3, size = 0.9) +
+  geom_point(data = delta_ebi_95ci, aes(x = var_col, y = delta_rho_mean), color = c_blue, size = 3, stroke = 1) +  
+    geom_errorbar(data = delta_ebi_95ci, aes(ymin = delta_rho_ci_lower, ymax = delta_rho_ci_upper), color = c_blue, width = 0.3, size = 0.9) +
+  geom_hline(yintercept = max_level, linetype = "dashed", color = "grey") + 
+  coord_cartesian(ylim = c(min_ci_upper, max_ci_upper)) +
+  scale_y_continuous(name = "Improved cross mapping skill (p)", breaks = round(seq(min_ci_upper, max_ci_upper, 0.1), 1)) +
+  scale_x_discrete(name = "Driver") +
+  labs(y = NULL, color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = "black") +
+  scale_color_manual(name = "",
+                       values = c(c_red,c_blue),
+                       labels = c("Seasonal null model", 
+                                  "Ebisuzaki null model")) +
+  theme(strip.background = element_blank(), strip.text = element_text(size = 9)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+ 
+file_name <- paste0("02_output/04_FigS14_A.pdf")
+ggsave(file_name, plot_mul_ccm_95ci, width = 6, height = 4) 
+
+```
+## plot FigS14-B
+```{r}
+delta_obs_95ci$var_col <- factor(delta_obs_95ci$var_col, levels = unique(delta_obs_95ci$var_col))
+
+max_mean <- max(delta_obs_95ci$delta_RMSE_ci_upper, delta_sea_95ci$delta_RMSE_ci_upper, delta_ebi_95ci$delta_RMSE_ci_upper)
+min_mean <- min(delta_obs_95ci$delta_RMSE_ci_lower, delta_sea_95ci$delta_RMSE_ci_lower, delta_ebi_95ci$delta_RMSE_ci_lower)
+
+max_ci_upper <- ceiling(max_mean * 10) / 10
+min_ci_upper <- floor(min_mean * 10) / 10
+
+min_level <- min(delta_obs_95ci$delta_RMSE_mean)
+
+
+plot_mul_ccm_95ci <- ggplot(delta_obs_95ci, aes(x = var_col, y = delta_RMSE_mean, color = "black")) +
+  geom_errorbar(aes(ymin = delta_RMSE_ci_lower, ymax = delta_RMSE_ci_upper), color = c_grey, width = 0.3, size = 0.9) +
+  geom_point(color = c_grey, size = 3, stroke = 1) +
+  geom_point(data = delta_sea_95ci, aes(x = var_col, y = delta_RMSE_mean), color = c_green, size = 3, stroke = 1) +  
+    geom_errorbar(data = delta_sea_95ci,aes(ymin = delta_RMSE_ci_lower, ymax = delta_RMSE_ci_upper), color = c_green, width = 0.3, size = 0.9) +
+  geom_point(data = delta_ebi_95ci, aes(x = var_col, y = delta_RMSE_mean), color = c_blue, size = 3, stroke = 1) +  
+    geom_errorbar(data = delta_ebi_95ci, aes(ymin = delta_RMSE_ci_lower, ymax = delta_RMSE_ci_upper), color = c_blue, width = 0.3, size = 0.9) +
+  coord_cartesian(ylim = c(min_ci_upper, max_ci_upper)) +
+  scale_y_continuous(name = "Reduced root mean square error", breaks = seq(min_ci_upper, max_ci_upper, 0.1)) +
+  scale_x_discrete(name = "Driver") +
+  labs(y = NULL, color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = "black") +
+  scale_color_manual(name = "",
+                       values = c(c_red,c_blue),
+                       labels = c("Seasonal null model", 
+                                  "Ebisuzaki null model")) +
+  theme(strip.background = element_blank(), strip.text = element_text(size = 9)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+file_name <- paste0("02_output/05_FigS14_B.pdf")
+ggsave(file_name, plot_mul_ccm_95ci, width = 6, height = 4) 
+```

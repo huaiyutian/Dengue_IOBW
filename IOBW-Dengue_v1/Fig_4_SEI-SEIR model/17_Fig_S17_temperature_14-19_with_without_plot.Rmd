@@ -1,0 +1,99 @@
+---
+title: "Figure S17"   
+output: html_document
+---
+
+## read.csv
+```{r}
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+plot_data_1 <- read.csv("01_data/02_covar_day_13-19_20ens.csv")
+```
+Set the drawing theme.
+```{r}
+mytheme <- theme_bw()+
+  theme(
+    panel.grid.major.x=element_blank(),
+    panel.grid.minor.x=element_blank(),
+    panel.grid.major.y=element_blank(),
+    panel.grid.minor.y=element_blank(),
+    legend.position = c("bottom"),
+    legend.background = element_rect(fill=NA, size=0,color=NA),
+    legend.text=element_text(size=9),
+    legend.title=element_text(face="bold",size=9),
+    axis.line.y=element_line(linetype=1,color='black',size=0.5),
+    axis.line.x=element_line(linetype=1,color='black',size=0.5),
+    axis.ticks = element_line(linetype=2,color='black'),
+    panel.grid=element_line(linetype=2,color='grey'),
+    plot.title = element_text(hjust = 0.5,size=9, face = "bold"),
+    axis.title.y.left = element_text(size = 9,color="black",vjust=2),
+    axis.title.y.right =element_text(size = 9,color="black",vjust=0,angle=90),
+    axis.title.x = element_text(size = 9, color="black",vjust = 0),
+    axis.text.y.left = element_text(size = 9,color="black",vjust = 0.5,angle = 0),
+    axis.text.y.right = element_text(size = 9,color="black",vjust = 0.5,angle = 0),
+    axis.text.x = element_text(size = 9, color="black",vjust = 0.5, angle = 0),
+    axis.ticks.length=unit(0.15,"cm"),
+    axis.ticks.y=element_line(color="black",size=.5),
+    axis.ticks.x=element_line(color="black",size=.5),
+    plot.margin=unit(c(1,1,1,1),'lines'),
+    panel.border = element_rect(colour = "white", fill=NA, size=1)
+  )
+```
+
+```{r}
+
+plot_data_1$date <- as.Date(plot_data_1$date)
+plot_data_1$date_ym <- format(plot_data_1$date, "%Y%m")
+monthly_avg <- aggregate(cbind(temp_with_iobw, temp_without_iobw) ~ date_ym + country, data = plot_data_1, FUN = mean)
+countries <- unique(monthly_avg$country)
+
+monthly_avg$date_ym <- as.Date(paste0(monthly_avg$date_ym, "01"), format = "%Y%m%d")
+
+
+colors <- c("blue", "red", "green", "purple", "orange", "yellow", "cyan", "magenta", "brown", "gray",
+            "darkgreen", "pink", "navy", "olivedrab", "darkcyan", "tan", "salmon", "gold", "skyblue", "violet",
+            "darkred", "darkblue", "darkorange", "darkgray")
+linetypes <- c("solid", "dashed")
+
+
+p_values <- vector("double", length(countries)) 
+
+for (i in 1:length(countries)) {
+  country_data <- monthly_avg[monthly_avg$country == countries[i], ]
+  
+  # Perform t-test
+  t_test_result <- t.test(country_data$temp_with_iobw, country_data$temp_without_iobw)
+  
+  p_values[i] <- t_test_result$p.value 
+  
+  # Print t-test result
+  cat("Country:", countries[i], "\n")
+  cat("p-value:", p_values[i], "\n")
+  
+  p <- ggplot(country_data, aes(x = date_ym)) +
+    geom_line(aes(y = temp_with_iobw, color = "temp with IOBW")) +
+    geom_line(aes(y = temp_without_iobw, color = "temp without IOBW"), linetype = "dashed") +
+    labs(title = countries[i], x = "Date", y = "Temperature (°C)") +
+    mytheme +
+    theme(strip.background = element_blank(), strip.text = element_text(size = 15)) +
+    scale_color_manual(values = rep(colors[i], 2),
+                       labels = c("temp with IOBW", "temp without IOBW"))+
+    guides(color = guide_legend(override.aes = list(linetype = linetypes))) +
+    theme(legend.title = element_blank())
+  
+  p_grob <- ggplotGrob(p)
+  assign(paste0("p", i), p_grob)
+}
+
+fpath <- "02_output/Figure_S17.pdf"
+cairo_pdf(file = fpath, width = 15 ,height = 21)
+
+
+grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19,p20,p21,p22,p23,p24,
+             nrow = 6)
+
+
+dev.off()
+```
+

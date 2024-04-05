@@ -1,0 +1,163 @@
+---
+title: "Figure 3A"   
+output: html_document
+---
+
+## calculate P
+```{r}
+ccm_all <- read.csv("01_data/02_output/01_CCM_single_rho.csv")
+country_vars <- unique(ccm_all$country)
+climate_vars <- c("t2m","tp","rh","svpd")
+ccm_all <- ccm_all%>% 
+  filter(climate %in% climate_vars)
+
+ccm_obs <- subset(ccm_all, method == "observed" & LibSize == 60)
+ccm_sea <- subset(ccm_all, method == "seasonal" & LibSize == 60)
+ccm_ebi <- subset(ccm_all, method == "ebisuzaki" & LibSize == 60)
+
+
+for (i in 1:length(climate_vars)) {
+  for (j in 1:length(country_vars)) {
+    obs <- subset(ccm_obs, climate == climate_vars[i] & country == country_vars[j])
+    sea <- subset(ccm_sea, climate == climate_vars[i] & country == country_vars[j])
+    ebi <- subset(ccm_ebi, climate == climate_vars[i] & country == country_vars[j])
+    
+    t.p_obs.sea <- t.test(sea$rho, mu = obs$rho, alternative = "less")[["p.value"]]
+    t.p_obs.ebi <- t.test(ebi$rho, mu = obs$rho, alternative = "less")[["p.value"]]
+
+    ccm_obs$t.p_sea[ccm_obs$climate == climate_vars[i] & ccm_obs$country == country_vars[j]] <- t.p_obs.sea
+    ccm_obs$t.p_ebi[ccm_obs$climate == climate_vars[i] & ccm_obs$country == country_vars[j]] <- t.p_obs.ebi
+    
+    ccm_obs$sign_sea[ccm_obs$climate == climate_vars[i] & ccm_obs$country == country_vars[j]] <- ifelse(t.p_obs.sea < 0.05 , 1, 0)
+    ccm_obs$sign_ebi[ccm_obs$climate == climate_vars[i] & ccm_obs$country == country_vars[j]] <- ifelse(t.p_obs.ebi < 0.05 , 1, 0)
+
+
+  }
+  
+
+
+  
+  t.p_sea <-  ccm_obs$t.p_sea[ccm_obs$climate == climate_vars[i]]
+  t.p_ebi <-  ccm_obs$t.p_ebi[ccm_obs$climate == climate_vars[i]]
+  # Fisher's method
+  fisher_combined_t.p_sea <- -2 * sum(log(t.p_sea))
+  fisher_t.p_sea <- 1 - pchisq(fisher_combined_t.p_sea, df = 2 * length(fisher_combined_t.p_sea))
+  
+    # Fisher's method
+  fisher_combined_t.p_ebi <- -2 * sum(log(t.p_ebi))
+  fisher_t.p_ebi <- 1 - pchisq(fisher_combined_t.p_ebi, df = 2 * length(fisher_combined_t.p_ebi))
+  
+  ccm_obs$fisher_t.p_sea[ccm_obs$climate == climate_vars[i]] <- fisher_t.p_sea
+  ccm_obs$fisher_t.p_ebi[ccm_obs$climate == climate_vars[i]] <- fisher_t.p_ebi
+  
+  #Bonferroni and BH method
+  print(c(p.adjust_bonferroni_sea = min(p.adjust(t.p_sea, method = "bonferroni")),
+        p.adjust_BH_sea = min(p.adjust(t.p_sea, method = "BH"))))
+  print(c(p.adjust_bonferroni_ebi = min(p.adjust(t.p_ebi, method = "bonferroni")),
+  p.adjust_BH_ebi = min(p.adjust(t.p_ebi, method = "BH"))))
+}
+
+  t.p_sea <-  ccm_obs$t.p_sea
+  t.p_ebi <-  ccm_obs$t.p_ebi
+  
+  t.p_sea_bonferroni <- p.adjust(t.p_sea, method = "bonferroni")
+  t.p_ebi_bonferroni <- p.adjust(t.p_sea, method = "bonferroni")
+  t.p_sea_df <- cbind(data.frame(t.p_sea_bonferroni),ccm_obs$climate)
+  t.p_ebi_df <- cbind(data.frame(t.p_ebi_bonferroni),ccm_obs$climate)
+```
+
+
+##  Count the number of P<0.05
+```{r}
+
+count_t.p_sea <- vector("numeric", length(climate_vars))
+count_t.p_ebi <- vector("numeric", length(climate_vars))
+fisher_t.p_sea <- vector("numeric", length(climate_vars))
+fisher_t.p_ebi <- vector("numeric", length(climate_vars))
+
+for (i in 1:length(climate_vars)) {
+  t.p_sea <- t.p_sea_df$t.p_sea_bonferroni[t.p_sea_df$"ccm_obs$climate" == climate_vars[i]]
+  t.p_ebi <- t.p_ebi_df$t.p_ebi_bonferroni[t.p_ebi_df$"ccm_obs$climate" == climate_vars[i]]
+  fisher_t.p_sea <- ccm_obs$fisher_t.p_se[ccm_obs$climate == climate_vars[i]][1]
+  fisher_t.p_ebi <- ccm_obs$fisher_t.p_ebi[ccm_obs$climate == climate_vars[i]][1]
+
+  count_t.p_sea[i] <- sum(t.p_sea < 0.05)
+  count_t.p_ebi[i] <- sum(t.p_ebi < 0.05)
+}
+
+count.p <- data.frame(
+  climate_var = climate_vars,
+  count_t.p_sea,
+  count_t.p_ebi,
+  fisher_t.p_sea,
+  fisher_t.p_ebi
+)
+
+```
+
+
+## Plot Fig. 3A
+```{r}
+library(ggplot2)
+ccm_95ci_all <- read.csv("01_data/02_output/02_CCM_single.csv")
+ccm_95ci_all <- ccm_95ci_all%>% 
+  filter(climate_var %in% climate_vars)
+
+ccm_95ci_all$climate <- factor(ccm_95ci_all$climate, levels = c("t2m", "tp", "rh", "svpd"))
+ccm_95ci_all$country <- factor(ccm_95ci_all$country, levels = rev(unique(ccm_95ci_all$country)))
+
+ccm_sea_max_95ci <- ccm_95ci_all %>% filter(method == "seasonal", LibSize == 60)
+ccm_ebi_max_95ci <- ccm_95ci_all %>% filter(method == "ebisuzaki", LibSize == 60)
+
+custom_colors <- c(c_red, c_blue, c_green, c_yellow)
+
+plot_sea <- ggplot(ccm_sea_max_95ci, aes(x = q500, y = country, group=climate, color = climate)) +
+  geom_point(size = 2, stroke = 1)+
+  geom_errorbar(aes(xmin = q025, xmax = q975), width = 0.2) +
+  geom_point(data =ccm_obs, aes(x = rho, y = country, shape=factor(sign_sea)), color = "black", size = 2, stroke = 1) + 
+  facet_wrap(~climate, scales = "free_x", nrow = 1, labeller = labeller(climate = 
+                                                                          c("t2m" = paste0("Temperature (", count.p$count_t.p_sea[count.p$climate == "t2m"],"/24)"), 
+                                                                            "tp" = paste0("Precipitation (", count.p$count_t.p_sea[count.p$climate == "tp"],"/24)"),
+                                                                            "rh" = paste0("RH (", count.p$count_t.p_sea[count.p$climate == "rh"],"/24)"),
+                                                                            "svpd" = paste0("SVPD (", count.p$count_t.p_sea[count.p$climate == "svpd"],"/24)") ))) +  
+  coord_cartesian(xlim = c(0, 1)) +
+  scale_x_continuous(name = "Cross mapping skill (p)", breaks = seq(0, 1, 0.5)) +
+  scale_y_discrete(name = "Country (ranked by lat)") +  
+  labs(y = NULL, color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = custom_colors) +
+  scale_color_manual(name = '', values = custom_colors) +
+  scale_shape_manual(name = '', values = c(1, 19), label = c("p > 0.05", "p < 0.05")) +
+  ggtitle("Seasonal null model") +
+  guides(color = guide_legend(override.aes = list(shape = NA, size = 1))) + 
+  theme(strip.background = element_blank(), strip.text = element_text(size = 9))
+
+
+plot_ebi <- ggplot(ccm_ebi_max_95ci, aes(x = q500, y = country, group=climate, color = climate)) +
+  geom_point(size = 2, stroke = 1)+
+  geom_errorbar(aes(xmin = q025, xmax = q975), width = 0.2) +
+  geom_point(data =ccm_obs, aes(x = rho, y = country, shape=factor(sign_ebi)), color = "black", size = 2, stroke = 1) + 
+  facet_wrap(~climate, scales = "free_x", nrow = 1, labeller = labeller(climate = 
+                                                                          c("t2m" = paste0("Temperature (", count.p$count_t.p_ebi[count.p$climate == "t2m"],"/24)"), 
+                                                                            "tp" = paste0("Precipitation (", count.p$count_t.p_ebi[count.p$climate == "tp"],"/24)"),
+                                                                            "rh" = paste0("RH (", count.p$count_t.p_ebi[count.p$climate == "rh"],"/24)"),
+                                                                            "svpd" = paste0("SVPD (", count.p$count_t.p_ebi[count.p$climate == "svpd"],"/24)")))) +  
+  coord_cartesian(xlim = c(0, 1)) +
+  scale_x_continuous(name = "Cross mapping skill (p)", breaks = seq(0, 1, 0.5)) +
+  scale_y_discrete(name = "Country (ranked by lat)") +  
+  labs(y = NULL, color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = custom_colors) +
+  scale_color_manual(name = '', values = custom_colors) +
+  scale_shape_manual(name = '', values = c(1, 19), label = c("p > 0.05", "p < 0.05")) +
+  ggtitle("Ebisuzaki null model") +
+  guides(color = guide_legend(override.aes = list(shape = NA, size = 1))) + 
+  theme(strip.background = element_blank(), strip.text = element_text(size = 9))
+  
+plot_all <- ggarrange(plot_sea, plot_ebi, nrow = 1,align = "hv",
+                    font.label = list(size = 9, face = "bold"))
+
+ggsave("02_output/01_Fig3A.pdf", plot_all, width = 18, height = 6) 
+
+```
+

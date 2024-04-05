@@ -1,0 +1,217 @@
+---
+title: "Figure S15"   
+output: html_document
+---
+
+## read.csv
+```{r}
+se_pred.svpd <- read.csv("01_data/02_output/09_pred_svpd.csv",row.names = 1)
+se_pred.tp <- read.csv("01_data/02_output/10_pred_tp.csv",row.names = 1)
+se_pred.t2m <- read.csv("01_data/02_output/08_pred_t2m.csv",row.names = 1)
+df.plot_SE <- bind_rows(
+  se_pred.t2m %>% mutate(Driver = 't2m'),
+  se_pred.tp %>% mutate(Driver = 'tp'),
+  se_pred.svpd %>% mutate(Driver = 'svpd')
+)
+
+data_country_plot <- read.csv("01_data/01_dengue-climate_monthly_2014-2019_24c.csv")
+
+```
+
+wilcox test
+```{r}
+wilcoxplot <- bind_rows( 
+  df.plot_SE %>%
+    group_by(Driver) %>%
+    filter(Driver == "t2m") %>%
+    summarise(median = median(delta, na.rm = T),
+              mean = mean(delta, na.rm = T),
+              p_val_wilcox = wilcox.test(delta)$p.value,
+              p_val_ttest = t.test(delta)$p.value),
+  df.plot_SE %>%
+    group_by(Driver) %>%
+    filter(Driver == "tp") %>%
+    summarise(median = median(delta, na.rm = T),
+              mean = mean(delta, na.rm = T),
+              p_val_wilcox = wilcox.test(delta)$p.value,
+              p_val_ttest = t.test(delta)$p.value),
+  df.plot_SE %>%
+    group_by(Driver) %>%
+    filter(Driver == "svpd") %>%
+    summarise(median = median(delta, na.rm = T),
+              mean = mean(delta, na.rm = T),
+              p_val_wilcox = wilcox.test(delta)$p.value,
+              p_val_ttest = t.test(delta)$p.value)
+)
+
+#write.csv(wilcoxplot,"02_output/06-wilcox.csv")
+
+```
+
+
+## Create Figure S15
+temp error bar&effect size
+```{r}
+g.SE_error.t2m <-df.plot_SE %>%
+  filter(Driver == "t2m") %>%
+  mutate(country = factor(country, levels = rev(unique(df.plot_SE$country)))) %>%
+  group_by(country) %>%
+  summarize (median_delta = median(delta, na.rm = TRUE),
+            q25 = quantile(delta, 0.025, na.rm = TRUE),
+          q75 = quantile(delta, 0.975, na.rm = TRUE))%>%
+  ggplot(aes(x = median_delta, y = country, color = c_red)) +
+  geom_point(size = 3, stroke = 1)+
+  geom_errorbar(aes(xmin = q25, xmax=q75),width = 0.3)+
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black")+
+  scale_x_continuous(name = "Effect of temperature on incidence\n(\u0394Incidence/\u0394Temperature)") +
+  scale_y_discrete(name = "Country (ranked by lat)") +  
+  labs(y = NULL, color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = c_red) +
+  scale_color_manual(name = '', values = c_red) +
+  ggtitle("Temperature (incidence/°C)") +
+  guides(color = guide_legend(override.aes = list(shape = NA, size = 1))) + 
+  theme(strip.background = element_blank(),strip.text = element_text(size = 9),
+        legend.position = "none")
+g.SE_error.t2m
+
+plot.SE.temp <- data_country_plot %>%
+  mutate(time_index = as.numeric(time_id)) %>%
+  select(time_index, ir, t2m, tp, svpd,country) %>%
+  inner_join(se_pred.t2m, by = c("time_index","country")) %>%
+  mutate(delta = delta)
+
+
+g.temp_v_temp <-plot.SE.temp  %>%
+  ggplot(aes(x = t2m, y = delta)) +
+  geom_point(shape = 3, color = "grey40", alpha = 0.5,na.rm = T) +
+  geom_smooth(method = "lm",formula = y~x + I(x^2), se = TRUE,color=c_red,fill=c_red,na.rm = T)+
+  geom_abline(slope = 0, intercept = 0, color = 'black', lwd = 0.5) +
+  scale_y_continuous(name = "Effect of temperature on incidence\n(\u0394Incidence/\u0394Temperature)", breaks = seq(-50, 100, 25)) +
+  scale_x_continuous(name = "Temperature (°C)", breaks = seq(10,30, 2)) +
+  labs(y = NULL,color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = "black") +
+  theme(strip.background = element_blank(), strip.text = element_text(size = 9),
+        legend.position = "none")
+
+g.temp_v_temp
+```
+
+##precipitation error bar&effect size
+```{r}
+g.SE_error.tp <-df.plot_SE %>%
+  filter(Driver == "tp") %>%
+  mutate(country = factor(country, levels = rev(unique(df.plot_SE$country)))) %>%
+  group_by(country) %>%
+  summarize (median_delta = median(delta, na.rm = TRUE),
+            q25 = quantile(delta, 0.025, na.rm = TRUE),
+          q75 = quantile(delta, 0.975, na.rm = TRUE))%>%
+  ggplot(aes(x = median_delta, y = country, color = c_blue)) +
+  geom_point(size = 3, stroke = 1)+
+  geom_errorbar(aes(xmin = q25, xmax=q75),width = 0.3)+
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black")+
+  scale_x_continuous(name = "Effect of precipitation on incidence\n(\u0394Incidence/\u0394Precipitation)") +
+  scale_y_discrete(name = "Country (ranked by lat)") +  
+  labs(y = NULL, color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = c_blue) +
+  scale_color_manual(name = '', values = c_blue) +
+  ggtitle("Precipitation (incidence/mm)") +
+  guides(color = guide_legend(override.aes = list(shape = NA, size = 1))) + 
+  theme(strip.background = element_blank(),strip.text = element_text(size = 9),
+        legend.position = "none")
+g.SE_error.tp
+
+plot.SE.tp <- data_country_plot %>%
+  mutate(time_index = as.numeric(time_id)) %>%
+  select(time_index, ir, t2m, tp, svpd,country) %>%
+  inner_join(se_pred.tp, by = c("time_index","country")) %>%
+  mutate(delta = delta)
+
+
+g.temp_v_tp <-plot.SE.tp  %>%
+  ggplot(aes(x = tp, y = delta)) +
+  geom_point(shape = 3, color = "grey40", alpha = 0.5,na.rm = T) +
+  geom_smooth(method = "lm",formula = y~x + I(x^2), se = TRUE,color=c_blue,fill=c_blue,na.rm = T)+
+  geom_abline(slope = 0, intercept = 0, color = 'black', lwd = 0.5) +
+  scale_y_continuous(name = "Effect of Precipitation on incidence\n(\u0394Incidence/\u0394Precipitation)", breaks = seq(-2,2, 0.5)) +
+  scale_x_continuous(name = "Precipitation (mm)", breaks = seq(0,600, 50)) +
+  labs(y = NULL,color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = "black") +
+  theme(strip.background = element_blank(), strip.text = element_text(size = 9),
+        legend.position = "none")
+
+g.temp_v_tp
+```
+
+##svpd error bar&effect size
+```{r}
+g.SE_error.svpd <-df.plot_SE %>%
+  filter(Driver == "svpd") %>%
+  mutate(country = factor(country, levels = rev(unique(df.plot_SE$country)))) %>%
+  group_by(country) %>%
+  summarize (median_delta = median(delta, na.rm = TRUE),
+            q25 = quantile(delta, 0.025, na.rm = TRUE),
+          q75 = quantile(delta, 0.975, na.rm = TRUE))%>%
+  ggplot(aes(x = median_delta, y = country, color = c_yellow)) +
+  geom_point(size = 3, stroke = 1)+
+  geom_errorbar(aes(xmin = q25, xmax=q75),width = 0.3)+
+  geom_vline(xintercept = 0, linetype = "dashed", color = "black")+
+  scale_x_continuous(name = "Effect of SVPD on incidence\n(\u0394Incidence/\u0394SVPD)") +
+  scale_y_discrete(name = "Country (ranked by lat)") +
+  labs(y = NULL, color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = c_yellow) +
+  scale_color_manual(name = '', values = c_yellow) +
+  ggtitle("SVPD (incidence/hPa)") +
+  guides(color = guide_legend(override.aes = list(shape = NA, size = 1))) + 
+  theme(strip.background = element_blank(),strip.text = element_text(size = 9),
+        legend.position = "none")
+g.SE_error.svpd
+
+plot.SE.svpd <- data_country_plot %>%
+  mutate(time_index = as.numeric(time_id)) %>%
+  select(time_index, ir, t2m, tp, svpd,country) %>%
+  inner_join(se_pred.svpd, by = c("time_index","country")) %>%
+  mutate(delta = delta)
+
+
+g.svpd_v_svpd <-plot.SE.svpd  %>%
+  ggplot(aes(x = svpd, y = delta)) +
+  geom_point(shape = 3, color = "grey40", alpha = 0.5,na.rm = T) +
+  geom_smooth(method = "lm",formula = y~x + I(x^2), se = TRUE,color=c_yellow,fill=c_yellow,na.rm = T)+
+  geom_abline(slope = 0, intercept = 0, color = 'black', lwd = 0.5) +
+  scale_y_continuous(name = "Effect of SVPD on incidence\n(\u0394Incidence/\u0394SVPD)") +
+  scale_x_continuous(name = "SVPD (hPa)") +
+  labs(y = NULL,color = "", fill = "") +
+  mytheme +
+  scale_fill_manual(name = '', values = "black") +
+  theme(strip.background = element_blank(), strip.text = element_text(size = 9),
+        legend.position = "none")
+
+g.svpd_v_svpd
+```
+
+```{r}
+
+g.SE_error.t2m_grob <- ggplotGrob(g.SE_error.t2m)
+g.temp_v_temp_grob <- ggplotGrob(g.temp_v_temp)
+g.SE_error.tp_grob <- ggplotGrob(g.SE_error.tp)
+g.temp_v_tp_grob <- ggplotGrob(g.temp_v_tp)
+g.SE_error.svpd_grob <- ggplotGrob(g.SE_error.svpd)
+g.svpd_v_svpd_grob <- ggplotGrob(g.svpd_v_svpd)
+
+fpath <- "02_output/06_Figure_S15.pdf"
+cairo_pdf(file = fpath, width = 12, height = 12)
+
+grid.arrange(g.SE_error.t2m_grob, g.temp_v_temp_grob, g.SE_error.tp_grob,
+             g.temp_v_tp_grob, g.SE_error.svpd_grob, g.svpd_v_svpd_grob,
+             nrow = 3)
+
+dev.off()
+
+
+```
+

@@ -1,0 +1,79 @@
+---
+title: "FigS20"
+output: html_notebook
+---
+
+Fig S19
+```{r}
+library(ggplot2)
+calculate_r_squared <- function(observed, predicted) {
+  summary(lm(predicted ~ observed, data =best_data))$r.squared
+}
+
+best_data <- read.csv("02_output/09_FigS20_A.csv")
+p1<-ggplot(best_data, aes(x = max_outbreak_obs, y = max_outbreak_pre, color = country)) +
+    geom_point(position = position_jitter(width = 1, height = 0.5), size = 4, alpha = 0.5) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "blue") +
+    labs(x = "Number of outbreaks observed", y = "Number of outbreaks predicted") +
+    theme_minimal() +
+    theme(
+        panel.grid = element_blank(), 
+        panel.background = element_rect(fill = "white"),  
+        axis.title = element_text(size = 14),  
+        axis.text = element_text(size = 12),   
+        axis.ticks = element_line(size = 0.5),  
+        axis.line = element_line(size = 0.5)    
+    ) +
+    scale_x_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 2)) +  
+    scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 2))
+r_squared_outbreaks <- calculate_r_squared(best_data$max_outbreak_obs, best_data$max_outbreak_pre)
+cat("R-squared for Outbreaks: ", r_squared_outbreaks, "\n")
+
+best_data <- read.csv("02_output/10_FigS20_B.csv")
+p2<-ggplot(best_data, aes(x = peak_months_obs, y = peak_months_pre, color = country)) +
+  #
+  # The function position_jitter adds random noise to this plot, making it easier to read.
+  # Here we jittered data points to reveal overlapping points. 
+  #
+  geom_point(position = position_jitter(width = 1, height = 0.5), size = 4, alpha = 0.5) + 
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "blue") +
+  labs(x = "Timing of outbreak peak observed (month)", y = "Timing of outbreak peak predicted (month)") +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),  
+    panel.background = element_rect(fill = "white"),  
+    axis.title = element_text(size = 14),  
+    axis.text = element_text(size = 12),   
+    axis.ticks = element_line(size = 0.5),  
+    axis.line = element_line(size = 0.5)    
+  ) +
+  scale_x_continuous(limits = c(0, 13), breaks = seq(0, 12, by = 2)) +  
+  scale_y_continuous(limits = c(0, 13), breaks = seq(0, 12, by = 2))
+# r2
+r_squared_peak_months <- calculate_r_squared(best_data$peak_months_obs, best_data$peak_months_pre)
+cat("R-squared for Outbreak peak months: ", r_squared_peak_months, "\n")
+
+
+best_data <- read.csv("02_output/11_FigS20_C.csv")
+p3<-ggplot(best_data, aes(x = outbreak_size_obs, y = outbreak_size_pre, color = country)) +
+    geom_point(position = position_jitter(width = 1, height = 0.5), size = 4, alpha = 0.5) + 
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "blue") +
+    labs(x = "Outbreak size observed (standardised)", y = "Outbreak size predicted (standardised)") +
+    theme_minimal() +
+    theme(
+        panel.grid = element_blank(),  
+        panel.background = element_rect(fill = "white"),  
+        axis.title = element_text(size = 14),  
+        axis.text = element_text(size = 12),   
+        axis.ticks = element_line(size = 0.5), 
+        axis.line = element_line(size = 0.5)    
+    ) 
+r_squared_outbreak_size <- calculate_r_squared(best_data$outbreak_size_obs, best_data$outbreak_size_pre)
+cat("R-squared for Outbreak Size: ", r_squared_outbreak_size, "\n")
+
+ggsave("02_output/FigS20_A_Number of outbreaks_withoutiobw.pdf", p1, width = 8, height = 6)
+ggsave("02_output/FigS20_B_Timing of outbreak peak_withoutiobw.pdf", p2, width = 8, height = 6)
+ggsave("02_output/FigS20_C_Outbreak size_withoutiobw.pdf", p3, width = 8, height = 6)
+
+```
+

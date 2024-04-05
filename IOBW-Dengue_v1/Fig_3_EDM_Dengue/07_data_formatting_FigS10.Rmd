@@ -1,0 +1,72 @@
+---
+title: "Step 3: Convergent Cross-Mapping"   
+output: html_document
+---
+
+## Convergent Cross-Mapping (Figure 3A)
+
+Step1. Lag vars and Set parameters
+```{r}
+data_country_clean <-  data_country.norm[, c("time_id", all_vars)]
+max_row <- floor(NROW(data_country_clean) / 10) * 10-5
+
+lib_ccm <- c(10,65,5)
+seed_num <- 1117
+```
+
+Step2. Generate surrogate data for permutation tests
+```{r}
+sur_num <- 500
+sam_num <- 500
+
+#Generate surrogate time series with the random based on composite time series data
+data_country_ebi <- lapply(climate_vars, function(var) {
+  make_surrogate_data(data_country_clean[[var]], method = "ebisuzaki", num_surr = sur_num, T_period = 12)
+})
+names(data_country_ebi) <- paste0(climate_vars, "_ebi")
+
+# T_period = 12
+data_country_sea<- lapply(climate_vars, function(var) {
+  make_surrogate_data(data_country_clean[[var]], method = "seasonal", num_surr = sur_num, T_period = 12)
+})
+names(data_country_sea) <- paste0(climate_vars, "_sea")
+
+data_country_ebi <- as.data.frame(data_country_ebi)
+data_country_sea <- as.data.frame(data_country_sea)
+
+data_country_obs_null <- cbind(data_country_clean,data_country_ebi,data_country_sea)
+
+last_date <- as.Date("2019-12-01")
+
+date_sequence <- rev(seq(last_date, by = "-1 month", length.out = nrow(data_country_obs_null)))
+
+data_country_obs_null <- data.frame(date = date_sequence, data_country_obs_null)
+data_country_clean <- data.frame(date = date_sequence, data_country_clean)
+```
+
+Plot Fig.S10
+```{r}
+
+plots_list <- list()
+
+for (var in local_climate_vars) {
+    plot_null_model <- ggplot(data_country_obs_null, aes(date, group=1)) +
+      geom_line(aes(x=date, y=.data[[var]], color="Observed"), size=1) +
+      geom_line(aes(x=date, y=.data[[paste0(var,"_ebi.1")]], color="Ebisuzaki surrogate"), size=1) +
+      geom_line(aes(x=date, y=.data[[paste0(var,"_sea.1")]], color="Seasonal surrogate"), size=1) +
+      scale_x_date(date_labels = "%Y", date_breaks = "1 year") +
+      labs(x="Time (month)", y=paste0(all_vars_name[which(var==local_climate_vars)+2], " (standardised)"), color="") +
+      scale_colour_manual(values = c("Observed" = c_grey, "Ebisuzaki surrogate" = c_red, "Seasonal surrogate" = c_blue)) +
+      mytheme +
+      theme(panel.border = element_rect(colour = "black", fill=NA, size=1),
+            legend.position = "right") 
+  
+  plots_list[[which(var==local_climate_vars)]] <- plot_null_model
+}
+
+grid_arrange <- grid.arrange(grobs = plots_list, ncol = 2, nrow = 2, align = "hv")
+
+output_name <- paste("02_output/02_CCM/01_Null_Model_Data/", country_index, "_", country_name, sep="")
+file_name = paste(output_name, "_FigS10.pdf", sep="")
+ggsave(file_name, grid_arrange, width = 10, height = 5)
+```

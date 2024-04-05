@@ -1,0 +1,153 @@
+---
+title: "Step 4: Scenario Exploration"   
+output: html_document
+---
+
+Normalize the variables before performing EDM analyses.
+Only use the four variables: incidence, temp, rain, svpd
+```{r}
+data_obs.null <- data_country_obs_null[, c(2,4:6, 8)]
+# lag
+text <- read.csv("01_data/02_mul_ccm_lag0-3_obs.csv")
+# select:ir,t2m,tp,svpd
+selected_rows <- text[text$var_col %in% c("ir, t2m, tp, svpd")& text$country == country_name, ]
+# Extracts the numbers in the column beginning with "name_" and stores them in the best_lag variable
+numbers_list <- list()
+for (col_name in colnames(selected_rows[grep("^name_", colnames(selected_rows))])) {
+  column_values <- selected_rows[[col_name]]
+  numbers <- as.integer(gsub("[^0-9]", "", column_values))
+  numbers_list[[col_name]] <- numbers
+}
+numbers_list[[2]] <- numbers_list[[2]] - 20
+best_lag <- unlist(numbers_list)
+
+data_obs.lag_best <- lapply(2:ncol(data_obs.null), function(i) shift(data_obs.null[, i], n = best_lag[i - 1], fill = NA))
+lag_drivers <- c("ir_lag1","t2m","tp","svpd")
+names(data_obs.lag_best) <- lag_drivers #climate_vars remove ir
+
+data_obs.lag_best <- cbind(data_obs.null$ir, data.frame(data_obs.lag_best))
+colnames(data_obs.lag_best)[colnames(data_obs.lag_best) == "data_obs.null$ir"] <- "ir"
+data_obs.lag_best$time_index <- 1:nrow(data_obs.lag_best)
+data_obs.lag_best <- data_obs.lag_best[, c("time_index", names(data_obs.lag_best)[1:(ncol(data_obs.lag_best)-1)])]
+mul_drivers <- c("ir_lag1","t2m","tp","svpd")
+
+```
+
+### Scenario exploration
+
+Step1. Scenario exploration for temperature
+```{r}
+vars_num <- length(unique(mul_drivers))
+lib_num <- c(1,NROW(data_country.norm))
+pred_num <- lib_num +NROW(data_country.norm)
+delta <- 2/ sd(data_country$t2m,na.rm=TRUE)
+dt2m.norm <- sd(data_country$ir,na.rm=TRUE)/sd(data_country$t2m,na.rm=TRUE)
+data_obs.plus <- data_obs.lag_best
+data_obs.plus[ ,"t2m"] <-data_obs.plus[ , "t2m"] +delta/2
+data_obs.plus <- bind_rows(data_obs.lag_best,data_obs.plus)
+data_obs.minus <- data_obs.lag_best
+data_obs.minus[ ,"t2m"] <-data_obs.minus[ , "t2m"] - delta/2
+data_obs.minus <- bind_rows(data_obs.lag_best,data_obs.minus)
+se.t2m <- data.frame()
+   Mview.plus <- block_lnlp(data_obs.plus, lib = lib_num, pred = pred_num, 
+                            norm = 2, method = c("simplex"), tp = 1, 
+                            num_neighbors = "e+1", columns =  mul_drivers, target_column = "ir",
+                            stats_only = F, first_column_time =  TRUE, exclusion_radius = NULL, 
+                            epsilon = NULL, theta = NULL, silent = TRUE, save_smap_coefficients = FALSE)
+  Mview.minus <- block_lnlp(data_obs.minus, lib = lib_num, pred = pred_num, 
+                            norm = 2, method = c("simplex"), tp = 1, 
+                            num_neighbors = "e+1", columns =  mul_drivers, target_column = "ir",
+                            stats_only = F, first_column_time =  TRUE, exclusion_radius = NULL, 
+                            epsilon = NULL, theta = NULL, silent = TRUE, save_smap_coefficients = FALSE)
+    Mul_prediction.plus <- Mview.plus[["model_output"]] %>%
+    rename(pred.plus = Predictions)
+  Mul_prediction.minus <- Mview.minus[["model_output"]] %>%
+    rename(pred.minus = Predictions)
+    results.t2m <- full_join(Mul_prediction.plus,
+                       Mul_prediction.minus,
+                       by = c("time_index", "Observations")) %>%
+    mutate(delta =((pred.plus-pred.minus)/2) *sd(data_country$ir[-nrow(data_country)],na.rm=TRUE))
+  results.t2m$country <- country_name
+  se.t2m <- results.t2m %>% select(time_index, Observations, pred.plus, pred.minus, delta, country)
+  se_pred.t2m <- rbind(se_pred.t2m, se.t2m)
+
+```
+
+Step2. Scenario exploration for tp
+```{r}
+vars_num <- length(unique(mul_drivers))
+lib_num <- c(1,NROW(data_country.norm))
+pred_num <- lib_num +NROW(data_country.norm)
+delta <- 100/sd(data_country$tp,na.rm=TRUE)
+dtp.norm <- sd(data_obs.lag_best$ir_lag1,na.rm=TRUE)/sd(data_country$tp,na.rm=TRUE)
+data_obs.plus <- data_obs.lag_best
+data_obs.plus[ ,"tp"] <-data_obs.plus[ , "tp"] +delta/2
+data_obs.plus <- bind_rows(data_obs.lag_best,data_obs.plus)
+data_obs.minus <- data_obs.lag_best
+data_obs.minus[ ,"tp"] <-data_obs.minus[ , "tp"] - delta/2
+data_obs.minus <- bind_rows(data_obs.lag_best,data_obs.minus)
+
+
+se.tp <- data.frame()
+
+   Mview.plus <- block_lnlp(data_obs.plus, lib = lib_num, pred = pred_num, 
+                            norm = 2, method = c("simplex"), tp = 1, 
+                            num_neighbors = "e+1", columns =  mul_drivers, target_column = "ir",
+                            stats_only = F, first_column_time =  TRUE, exclusion_radius = NULL, 
+                            epsilon = NULL, theta = NULL, silent = TRUE, save_smap_coefficients = FALSE)
+  Mview.minus <- block_lnlp(data_obs.minus, lib = lib_num, pred = pred_num, 
+                            norm = 2, method = c("simplex"), tp = 1, 
+                            num_neighbors = "e+1", columns =  mul_drivers, target_column = "ir",
+                            stats_only = F, first_column_time =  TRUE, exclusion_radius = NULL, 
+                            epsilon = NULL, theta = NULL, silent = TRUE, save_smap_coefficients = FALSE)
+    Mul_prediction.plus <- Mview.plus[["model_output"]] %>%
+    rename(pred.plus = Predictions)
+  Mul_prediction.minus <- Mview.minus[["model_output"]] %>%
+    rename(pred.minus = Predictions)
+    results.tp <- full_join(Mul_prediction.plus,
+                       Mul_prediction.minus,
+                       by = c("time_index", "Observations")) %>%
+    mutate(delta =((pred.plus-pred.minus)/100) *sd(data_country$ir[-nrow(data_country)],na.rm=TRUE))
+  results.tp$country <- country_name
+  se.tp <- results.tp %>% select(time_index, Observations, pred.plus, pred.minus, delta, country)
+  se_pred.tp  <- rbind(se_pred.tp, se.tp)
+```
+Step3. Scenario exploration for svpd
+```{r}
+vars_num <- length(unique(mul_drivers))
+lib_num <- c(1,NROW(data_country.norm))
+pred_num <- lib_num +NROW(data_country.norm)
+delta <- 0.15/sd(data_country$svpd,na.rm=TRUE)
+dsvpd.norm <- sd(data_obs.lag_best$ir_lag1,na.rm=TRUE)/sd(data_country$svpd,na.rm=TRUE)
+data_obs.plus <- data_obs.lag_best
+data_obs.plus[ ,"svpd"] <-data_obs.plus[ , "svpd"] +delta/2
+data_obs.plus <- bind_rows(data_obs.lag_best,data_obs.plus)
+data_obs.minus <- data_obs.lag_best
+data_obs.minus[ ,"svpd"] <-data_obs.minus[ , "svpd"] - delta/2
+data_obs.minus <- bind_rows(data_obs.lag_best,data_obs.minus)
+
+
+se.svpd <- data.frame()
+
+   Mview.plus <- block_lnlp(data_obs.plus, lib = lib_num, pred = pred_num, 
+                            norm = 2, method = c("simplex"), tp = 1, 
+                            num_neighbors = "e+1", columns =  mul_drivers, target_column = "ir",
+                            stats_only = F, first_column_time =  TRUE, exclusion_radius = NULL, 
+                            epsilon = NULL, theta = NULL, silent = TRUE, save_smap_coefficients = FALSE)
+  Mview.minus <- block_lnlp(data_obs.minus, lib = lib_num, pred = pred_num, 
+                            norm = 2, method = c("simplex"), tp = 1, 
+                            num_neighbors = "e+1", columns =  mul_drivers, target_column = "ir",
+                            stats_only = F, first_column_time =  TRUE, exclusion_radius = NULL, 
+                            epsilon = NULL, theta = NULL, silent = TRUE, save_smap_coefficients = FALSE)
+    Mul_prediction.plus <- Mview.plus[["model_output"]] %>%
+    rename(pred.plus = Predictions)
+  Mul_prediction.minus <- Mview.minus[["model_output"]] %>%
+    rename(pred.minus = Predictions)
+    results.svpd <- full_join(Mul_prediction.plus,
+                       Mul_prediction.minus,
+                       by = c("time_index", "Observations")) %>%
+    mutate(delta =((pred.plus-pred.minus)/0.15) *sd(data_country$ir[-nrow(data_country)],na.rm=TRUE))
+  results.svpd$country <- country_name
+  se.svpd <- results.svpd %>% select(time_index, Observations, pred.plus, pred.minus, delta, country)
+  se_pred.svpd  <- rbind(se_pred.svpd, se.svpd)
+```

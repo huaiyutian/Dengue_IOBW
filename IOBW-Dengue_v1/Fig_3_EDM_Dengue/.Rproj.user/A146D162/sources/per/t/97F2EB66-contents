@@ -1,0 +1,185 @@
+---
+title: "Indian Ocean temperatures anomalies explain long-term global dengue trends"
+header-includes:
+   - \usepackage{float}
+output: 
+  html_document:
+    toc: yes
+    toc_depth: 2
+#bibliography: ref.bib
+---
+
+\floatplacement{figure}{H}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      cache = TRUE,
+                      fig.width = 6,
+                      fig.height = 4,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+### Set up  
+
+If necessary, we can clear the environment to start with a clean workspace.
+```{r}
+rm(list=ls())
+```
+
+Load packages.
+```{r packages, warning=FALSE, message=FALSE}
+needed_packages = c("lubridate","rEDM","tidyr","ggpubr","reshape2",
+"ggplot2","gplots","RColorBrewer","readxl","lubridate",
+"gtable","reshape","scales","showtext","dplyr",
+"Kendall","data.table","gridExtra","cowplot","rmarkdown",
+"foreach", "doParallel","future","future.apply","purrr")
+
+lapply(needed_packages, require, character.only = TRUE)
+
+new.packages <- needed_packages[!(needed_packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+sessionInfo()
+```
+
+Set the drawing theme.
+```{r}
+
+c_red='#e74c3c'
+c_yellow='#f1c40f'
+c_orange='#ff793f'
+c_green='#009432'
+c_blue='#34ace0'
+c_purple='#706fd3'
+c_grey='#7f8c8d'
+
+
+mytheme <- theme_bw()+
+  theme(
+    panel.grid.major.x=element_blank(),
+    panel.grid.minor.x=element_blank(),
+    panel.grid.major.y=element_blank(),
+    panel.grid.minor.y=element_blank(),
+    legend.position = c("bottom"),
+    legend.background = element_rect(fill=NA, size=0,color=NA),
+    legend.text=element_text(size=9),
+    legend.title=element_text(face="bold",size=9),
+    axis.line.y=element_line(linetype=1,color='black',size=0.5),
+    axis.line.x=element_line(linetype=1,color='black',size=0.5),
+    axis.ticks = element_line(linetype=2,color='black'),
+    panel.grid=element_line(linetype=2,color='grey'),
+    plot.title = element_text(hjust = 0.5,size=9, face = "bold"),
+    axis.title.y.left = element_text(size = 9,color="black",vjust=2),
+    axis.title.y.right =element_text(size = 9,color="black",vjust=0,angle=90),
+    axis.title.x = element_text(size = 9, color="black",vjust = 0),
+    axis.text.y.left = element_text(size = 9,color="black",vjust = 0.5,angle = 0),
+    axis.text.y.right = element_text(size = 9,color="black",vjust = 0.5,angle = 0),
+    axis.text.x = element_text(size = 9, color="black",vjust = 0.5, angle = 0),
+    axis.ticks.length=unit(0.15,"cm"),
+    axis.ticks.y=element_line(color="black",size=.5),
+    axis.ticks.x=element_line(color="black",size=.5),
+    plot.margin=unit(c(1,1,1,1),'lines'),
+    panel.border = element_rect(colour = "white", fill=NA, size=1)
+  )
+```
+
+Create a folder to save the results.
+```{r}
+dir.create("02_output")
+outpath <-  "02_output/"
+
+dir.create(paste0(outpath,"00_cache"))
+dir.create(paste0(outpath,"00_cache/00_html"))
+
+dir.create(paste0(outpath,"01_parameter_selection"))
+dir.create(paste0(outpath,"01_parameter_selection/01_Cross-Correlation"))
+dir.create(paste0(outpath,"01_parameter_selection/02_Best-E"))
+dir.create(paste0(outpath,"01_parameter_selection/03_Nonlinear"))
+
+dir.create(paste0(outpath,"02_CCM"))
+dir.create(paste0(outpath,"02_CCM/01_Null_Model_Data"))
+dir.create(paste0(outpath,"02_CCM/02_single_CCM"))
+
+dir.create(paste0(outpath,"02_CCM/03_mul_CCM"))
+```
+
+Create a database to store the parameters.
+```{r}
+ccm_parameter_all <- c()
+
+ccm_95ci_all <- c()
+ccm_ebi_max_all <- c()
+ccm_sea_max_all <- c()
+ccm_obs_max_all <- c()
+
+se_pred.t2m <- c()
+se_pred.tp <- c()
+se_pred.svpd <- c()
+
+Mul_ccm_obs<-c()
+Mul_ccm_ebi <- c()
+Mul_ccm_sea <- c()
+available_cores <- detectCores(logical = FALSE)
+used_cores <- available_cores - 1 # If you need to retain some core, you can adjust this number
+cl <- makeCluster(used_cores)
+registerDoParallel(cl)
+
+all_current_datetime <- Sys.time()
+all_start_time <- all_current_datetime
+```
+
+```{r}
+
+  
+for (country_index in 1:24) { 
+  current_datetime <- Sys.time()
+  start_time <- current_datetime
+
+  cat("Running analysis for Country ", country_index, " at ", format(current_datetime, format = "%Y-%m-%d %H:%M:%S"), "\n")
+
+
+  outpath_html <- file.path("02_output/00_cache/00_html", paste0(country_index, "_country"))
+  dir.create(outpath_html, recursive = TRUE, showWarnings = FALSE)
+
+  capture.output(render(input = "05_sin_tau.Rmd", output_dir = outpath_html))
+  capture.output(render(input = "06_sin_E_Tp_theta.Rmd", output_dir = outpath_html))
+  capture.output(render(input = "07_data_formatting_FigS10.Rmd", output_dir = outpath_html))
+  capture.output(render(input = "08_sin_ccm_FigS11_S12.Rmd", output_dir = outpath_html))
+  capture.output(render(input = "09_mul_ccm.Rmd", output_dir = outpath_html))
+  capture.output(render(input = "10_Scenario Exploration.Rmd", output_dir = outpath_html))
+  current_datetime <- Sys.time()
+  end_time <- current_datetime
+
+  # Calculate total time (in hours)
+  execution_time <- difftime(end_time, start_time, units = "hours")
+  cat("Country ", country_index, " completed at ", format(current_datetime, format = "%Y-%m-%d %H:%M:%S"), "\n")
+  cat("Total execution time: ", execution_time, " hours\n")
+}
+
+all_current_datetime <- Sys.time()
+all_end_time <- all_current_datetime
+all_execution_time <- difftime(all_end_time, all_start_time, units = "hours")
+cat("All execution time: ", all_execution_time, " hours\n")
+
+stopCluster(cl)
+
+```
+
+
+```{r child = '11_Fig3A.Rmd'}
+```
+
+```{r child = '12_Fig3B.Rmd'}
+```
+
+```{r child = '13_Fig3C.Rmd'}
+```
+
+```{r child = '14_FigS13.Rmd'}
+```
+
+```{r child = '15_FigS14.Rmd'}
+```
+
+
